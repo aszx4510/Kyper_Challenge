@@ -1,27 +1,47 @@
 from sklearn import svm
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import mean_squared_error
+from sklearn.metrics import mean_squared_error, mean_absolute_error
+from sklearn.model_selection import KFold
 import pandas as pd
+import math
+import data_preprocessing
 
 
-data = pd.read_csv('data/data.txt')
+# original version
+# data = pd.read_csv('data/data.txt')
+# X = data[data.columns[1:8]]  # warning: missing 'Sex'
+# y = data[data.columns[8:9]]
 
-X = data[data.columns[1:8]]  # warning: missing 'Sex'
-y = data[data.columns[8:9]]
+# one-hot version
+data = data_preprocessing.convert_nominal('data/data.txt')  # convert nominal feature to one-hot feature
+X = data[data.columns[:-1]]
+y = data[data.columns[-1:]]
 
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.1, random_state=15)
+# 10-fold
+kf = KFold(n_splits=10, shuffle=True)
 
-print(X_train.shape)
-print(X_test.shape)
-print(y_train.shape)
-print(y_test.shape)
+mae_list, mse_list, rmse_list = [], [], []
 
-clf = svm.SVR()
-clf.fit(X_train, y_train)
+for train_index, test_index in kf.split(X):
+    print('{} {}'.format(len(train_index), len(test_index)))
+    X_train, X_test = X.iloc[train_index], X.iloc[test_index]
+    y_train, y_test = y.iloc[train_index], y.iloc[test_index]
 
-y_pred = clf.predict(X_test)
+    # training
+    clf = svm.SVR()
+    clf.fit(X_train, y_train)
 
-mse = mean_squared_error(y_test, y_pred)
+    y_pred = clf.predict(X_test)
 
-print(mse)
+    mae_list.append(mean_absolute_error(y_test, y_pred))
+    mse_list.append(mean_squared_error(y_test, y_pred))
+    rmse_list.append(math.sqrt(mean_squared_error(y_test, y_pred)))
+
+print(mae_list)
+print(mse_list)
+print(rmse_list)
+
+print('Mean Absolute Error:    {:0.3f}'.format(sum(mae_list) / kf.get_n_splits()))
+print('Mean Square Error:      {:0.3f}'.format(sum(mse_list) / kf.get_n_splits()))
+print('Root Mean Square Error: {:0.3f}'.format(math.sqrt(sum(rmse_list) / kf.get_n_splits())))
 
